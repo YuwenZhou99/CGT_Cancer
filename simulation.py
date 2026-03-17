@@ -1,4 +1,5 @@
 import argparse
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -86,36 +87,6 @@ def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=10,
     }
 
 
-def plot_simulation(result, title="Cancer Simulation"):
-    producer_fraction = result["producer_fraction"]
-    nonproducer_fraction = result["nonproducer_fraction"]
-    producer_fitness_vals = result["producer_fitness"]
-    nonproducer_fitness_vals = result["nonproducer_fitness"]
-    therapy_vals = result["therapy"]
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(producer_fraction, label="Producer fraction")
-    plt.plot(nonproducer_fraction, label="Non-producer fraction")
-    plt.xlabel("Time step")
-    plt.ylabel("Fraction")
-    plt.title(title + " - Fraction")
-    plt.ylim(-0.02, 1.02)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(producer_fitness_vals, label="Producer fitness")
-    plt.plot(nonproducer_fitness_vals, label="Non-producer fitness")
-    plt.plot(therapy_vals, "--", label="Therapy strength")
-    plt.xlabel("Time step")
-    plt.ylabel("Value")
-    plt.title(title + " - Fitness over time")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
 def find_equilibria(cost=0.05, group_size=10, therapy_strength=0.0,
                     steepness=10, threshold=0.3, num_points=1000):
     """
@@ -142,7 +113,7 @@ def find_equilibria(cost=0.05, group_size=10, therapy_strength=0.0,
     eq_points = []
 
     for i in range(len(p_grid) - 1):
-        if diff[i] == 0:
+        if abs(diff[i]) < 1e-8:
             eq_points.append(p_grid[i])
         elif diff[i] * diff[i + 1] < 0:
             # linear interpolation for approximate crossing
@@ -154,9 +125,54 @@ def find_equilibria(cost=0.05, group_size=10, therapy_strength=0.0,
     return eq_points
 
 
+def plot_simulation(result, title="Cancer Simulation", save_dir=None):
+    producer_fraction = result["producer_fraction"]
+    nonproducer_fraction = result["nonproducer_fraction"]
+    producer_fitness_vals = result["producer_fitness"]
+    nonproducer_fitness_vals = result["nonproducer_fitness"]
+    therapy_vals = result["therapy"]
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(producer_fraction, label="Producer fraction")
+    plt.plot(nonproducer_fraction, label="Non-producer fraction")
+    plt.xlabel("Time step")
+    plt.ylabel("Fraction")
+    plt.title(title + " - Fraction")
+    plt.ylim(-0.02, 1.02)
+    plt.legend()
+    plt.tight_layout()
+
+    if save_dir is not None:
+        plt.savefig(
+            os.path.join(save_dir, "simulation_fraction.png"),
+            dpi=300,
+            bbox_inches="tight"
+        )
+    plt.show()
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(producer_fitness_vals, label="Producer fitness")
+    plt.plot(nonproducer_fitness_vals, label="Non-producer fitness")
+    plt.plot(therapy_vals, "--", label="Therapy strength")
+    plt.xlabel("Time step")
+    plt.ylabel("Value")
+    plt.title(title + " - Fitness over time")
+    plt.legend()
+    plt.tight_layout()
+
+    if save_dir is not None:
+        plt.savefig(
+            os.path.join(save_dir, "simulation_fitness.png"),
+            dpi=300,
+            bbox_inches="tight"
+        )
+    plt.show()
+
+
 def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
                              steepness=10, threshold=0.3,
-                             title="Fitness vs fraction of producers"):
+                             title="Fitness vs fraction of producers", 
+                             save_dir=None):
     """
     Plot a paper-like figure:
     x-axis = fraction of producers
@@ -191,8 +207,8 @@ def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
     )
 
     plt.figure(figsize=(8, 5))
-    plt.plot(p_grid, wp_vals, label="Producer fitness")
-    plt.plot(p_grid, wd_vals, label="Non-producer fitness")
+    plt.plot(p_grid, wp_vals, label="Producer fitness", linewidth=2)
+    plt.plot(p_grid, wd_vals, label="Non-producer fitness", linewidth=2, linestyle="--")
     plt.xlabel("Fraction of producers")
     plt.ylabel("Fitness")
     plt.title(title)
@@ -210,12 +226,20 @@ def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
                      textcoords="offset points", xytext=(5, 5))
 
     plt.tight_layout()
+
+    if save_dir is not None:
+        plt.savefig(
+            os.path.join(save_dir, "fitness_vs_fraction.png"),
+            dpi=300,
+            bbox_inches="tight"
+        )
     plt.show()
 
 
 def plot_comparison(group_size=10, therapy_strength=0.0,
                                steepness=10, threshold=0.3,
-                               high_cost=0.20, low_cost=0.05):
+                               high_cost=0.20, low_cost=0.05, 
+                               save_dir=None):
     """
     Comparison Analysis
     """
@@ -248,8 +272,8 @@ def plot_comparison(group_size=10, therapy_strength=0.0,
         wp_vals = np.array(wp_vals)
         wd_vals = np.array(wd_vals)
 
-        ax.plot(p_grid, wp_vals, label="Producer fitness")
-        ax.plot(p_grid, wd_vals, label="Non-producer fitness")
+        ax.plot(p_grid, wp_vals, label="Producer fitness", linewidth=2)
+        ax.plot(p_grid, wd_vals, label="Non-producer fitness", linewidth=2, linestyle="--") 
         ax.set_xlabel("Fraction of producers")
         ax.set_title(panel_title)
 
@@ -271,6 +295,14 @@ def plot_comparison(group_size=10, therapy_strength=0.0,
     axes[0].legend()
     plt.suptitle("Fitness Comparison analysis")
     plt.tight_layout()
+
+    if save_dir is not None:
+        plt.savefig(
+            os.path.join(save_dir, "fitness_comparison.png"),
+            dpi=300,
+            bbox_inches="tight"
+        )
+
     plt.show()
 
 
@@ -285,8 +317,34 @@ if __name__ == "__main__":
     parser.add_argument("--therapy_start", type=int, default=None, help="Therapy start step")
     parser.add_argument("--steepness", type=float, default=10, help="Sigmoid steepness")
     parser.add_argument("--threshold", type=float, default=0.3, help="Sigmoid threshold")
+    parser.add_argument("--output_dir", type=str, default="plots", help="Folder to save plots")
+
 
     args = parser.parse_args()
+
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Single fitness-vs-fraction plot
+    plot_fitness_vs_fraction(
+        cost=args.cost,
+        group_size=args.group_size,
+        therapy_strength=args.therapy_strength,
+        steepness=args.steepness,
+        threshold=args.threshold,
+        title="Fitness vs fraction of producers", 
+        save_dir=args.output_dir
+    )
+
+    # Comparison plots
+    plot_comparison(
+        group_size=args.group_size,
+        therapy_strength=args.therapy_strength,
+        steepness=args.steepness,
+        threshold=args.threshold,
+        high_cost=0.20,
+        low_cost=0.05, 
+        save_dir=args.output_dir
+    )
 
     result = simulate_dynamics(
         p0=args.p0,
@@ -300,24 +358,4 @@ if __name__ == "__main__":
         threshold=args.threshold
     )
 
-    plot_simulation(result, title="Cancer Simulation")
-
-    # Single fitness-vs-fraction plot
-    plot_fitness_vs_fraction(
-        cost=args.cost,
-        group_size=args.group_size,
-        therapy_strength=args.therapy_strength,
-        steepness=args.steepness,
-        threshold=args.threshold,
-        title="Fitness vs fraction of producers"
-    )
-
-    # Comparison plots
-    plot_comparison(
-        group_size=args.group_size,
-        therapy_strength=args.therapy_strength,
-        steepness=args.steepness,
-        threshold=args.threshold,
-        high_cost=0.20,
-        low_cost=0.05
-    )
+    plot_simulation(result, title="Cancer Simulation", save_dir=args.output_dir)
