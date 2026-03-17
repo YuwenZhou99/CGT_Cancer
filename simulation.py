@@ -2,16 +2,17 @@ import argparse
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
-def benefit_function(p, steepness=10, threshold=0.3):
+def benefit_function(p, steepness=8, threshold=0.3):
     """
     Sigmoid public-good benefit
     """
     return 1.0 / (1.0 + np.exp(-steepness * (p - threshold)))
 
 
-def producer_fitness(p, cost=0.15, group_size=10, therapy_strength=0.0, steepness=10, threshold=0.3):
+def producer_fitness(p, cost=0.15, group_size=20, therapy_strength=0.0, steepness=8, threshold=0.3):
     """
     A producer is in a local group of size n.
     Among the other n-1 cells, expected producer fraction is p.
@@ -24,7 +25,7 @@ def producer_fitness(p, cost=0.15, group_size=10, therapy_strength=0.0, steepnes
     return effective_benefit - cost
 
 
-def nonproducer_fitness(p, group_size=10, therapy_strength=0.0, steepness=10, threshold=0.3):
+def nonproducer_fitness(p, group_size=20, therapy_strength=0.0, steepness=8, threshold=0.3):
     """
     A non-producer does not contribute itself.
     Among the other n-1 cells, expected producer fraction is p.
@@ -37,8 +38,8 @@ def nonproducer_fitness(p, group_size=10, therapy_strength=0.0, steepness=10, th
     return effective_benefit
 
 
-def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=10,
-                      therapy_strength=0.0, therapy_start=None, steepness=10, threshold=0.3):
+def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=20,
+                      therapy_strength=0.0, therapy_start=None, steepness=8, threshold=0.3):
     """
     Replicator dynamics for producer fraction p
     """
@@ -87,8 +88,8 @@ def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=10,
     }
 
 
-def find_equilibria(cost=0.05, group_size=10, therapy_strength=0.0,
-                    steepness=10, threshold=0.3, num_points=1000):
+def find_equilibria(cost=0.05, group_size=20, therapy_strength=0.0,
+                    steepness=8, threshold=0.3, num_points=1000):
     """
     Approximate interior equilibria where Wp(p) = Wd(p).
     We detect sign changes in Wp - Wd on a dense grid.
@@ -121,8 +122,50 @@ def find_equilibria(cost=0.05, group_size=10, therapy_strength=0.0,
             d1, d2 = diff[i], diff[i + 1]
             p_star = p1 - d1 * (p2 - p1) / (d2 - d1)
             eq_points.append(p_star)
+    
+    cleaned = []
+    for p in eq_points:
+        if not any(abs(p - q) < 1e-3 for q in cleaned):
+            cleaned.append(p)
 
-    return eq_points
+    return cleaned
+    #  return eq_points
+
+def classify_equilibrium(p_star, cost=0.05, group_size=20, therapy_strength=0.0,
+                         steepness=8, threshold=0.3, eps=1e-3):
+    """
+    Classify an equilibrium as stable or unstable by checking the sign of
+    Wp - Wd just to the left and right of the crossing.
+    """
+    p_left = max(0.0, p_star - eps)
+    p_right = min(1.0, p_star + eps)
+
+    diff_left = producer_fitness(
+        p_left, cost=cost, group_size=group_size,
+        therapy_strength=therapy_strength,
+        steepness=steepness, threshold=threshold
+    ) - nonproducer_fitness(
+        p_left, group_size=group_size,
+        therapy_strength=therapy_strength,
+        steepness=steepness, threshold=threshold
+    )
+
+    diff_right = producer_fitness(
+        p_right, cost=cost, group_size=group_size,
+        therapy_strength=therapy_strength,
+        steepness=steepness, threshold=threshold
+    ) - nonproducer_fitness(
+        p_right, group_size=group_size,
+        therapy_strength=therapy_strength,
+        steepness=steepness, threshold=threshold
+    )
+
+    if diff_left > 0 and diff_right < 0:
+        return "stable"
+    elif diff_left < 0 and diff_right > 0:
+        return "unstable"
+    else:
+        return "neutral"
 
 
 def plot_simulation(result, title="Cancer Simulation", save_dir=None):
@@ -169,8 +212,8 @@ def plot_simulation(result, title="Cancer Simulation", save_dir=None):
     plt.show()
 
 
-def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
-                             steepness=10, threshold=0.3,
+def plot_fitness_vs_fraction(cost=0.05, group_size=20, therapy_strength=0.0,
+                             steepness=8, threshold=0.3,
                              title="Fitness vs fraction of producers", 
                              save_dir=None):
     """
@@ -212,18 +255,61 @@ def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
     plt.xlabel("Fraction of producers")
     plt.ylabel("Fitness")
     plt.title(title)
-    plt.legend()
 
-    # Mark approximate equilibrium points
+    legend_elements = [
+        Line2D([0], [0], color="C0", lw=2, label="Producer fitness"),
+        Line2D([0], [0], color="C1", lw=2, linestyle="--", label="Non-producer fitness"),
+        Line2D([0], [0], marker="o", color="black", linestyle="None", markersize=6, label="Stable equilibrium"),
+        Line2D([0], [0], marker="o", color="green", linestyle="None", markersize=7, label="Unstable equilibrium"),
+    ]
+    plt.legend(handles=legend_elements)
+
+    # # Mark approximate equilibrium points
+    # for p_star in eq_points:
+    #     w_star = producer_fitness(
+    #         p_star, cost=cost, group_size=group_size,
+    #         therapy_strength=therapy_strength,
+    #         steepness=steepness, threshold=threshold
+    #     )
+    #     plt.scatter([p_star], [w_star], s=40)
+    #     plt.annotate(f"{p_star:.2f}", (p_star, w_star),
+    #                  textcoords="offset points", xytext=(5, 5))
+
+    # Mark approximate equilibrium points and classify them
+    stable_added = False
+    unstable_added = False
+
     for p_star in eq_points:
         w_star = producer_fitness(
             p_star, cost=cost, group_size=group_size,
             therapy_strength=therapy_strength,
             steepness=steepness, threshold=threshold
         )
-        plt.scatter([p_star], [w_star], s=40)
-        plt.annotate(f"{p_star:.2f}", (p_star, w_star),
-                     textcoords="offset points", xytext=(5, 5))
+
+        eq_type = classify_equilibrium(
+            p_star,
+            cost=cost,
+            group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness,
+            threshold=threshold
+        )
+
+        if eq_type == "stable":
+            plt.scatter(
+                [p_star], [w_star],
+                s=80, marker="o", color="black",
+                label="Stable equilibrium" if not stable_added else None
+            )
+            stable_added = True
+
+        elif eq_type == "unstable":
+            plt.scatter(
+                [p_star], [w_star],
+                s=80, marker="o", color="green",
+                label="Unstable equilibrium" if not unstable_added else None
+            )
+            unstable_added = True
 
     plt.tight_layout()
 
@@ -236,8 +322,8 @@ def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
     plt.show()
 
 
-def plot_comparison(group_size=10, therapy_strength=0.0,
-                               steepness=10, threshold=0.3,
+def plot_comparison(group_size=20, therapy_strength=0.0,
+                               steepness=8, threshold=0.3,
                                high_cost=0.20, low_cost=0.05, 
                                save_dir=None):
     """
@@ -283,16 +369,57 @@ def plot_comparison(group_size=10, therapy_strength=0.0,
             steepness=steepness, threshold=threshold
         )
 
+        # for p_star in eq_points:
+        #     w_star = producer_fitness(
+        #         p_star, cost=cost, group_size=group_size,
+        #         therapy_strength=therapy_strength,
+        #         steepness=steepness, threshold=threshold
+        #     )
+        #     ax.scatter([p_star], [w_star], s=35)
+        stable_added = False
+        unstable_added = False
+
         for p_star in eq_points:
             w_star = producer_fitness(
                 p_star, cost=cost, group_size=group_size,
                 therapy_strength=therapy_strength,
                 steepness=steepness, threshold=threshold
             )
-            ax.scatter([p_star], [w_star], s=35)
 
+            eq_type = classify_equilibrium(
+                p_star,
+                cost=cost,
+                group_size=group_size,
+                therapy_strength=therapy_strength,
+                steepness=steepness,
+                threshold=threshold
+            )
+
+            if eq_type == "stable":
+                ax.scatter(
+                    [p_star], [w_star],
+                    s=80, marker="o", color="black",
+                    label="Stable equilibrium" if not stable_added else None
+                )
+                stable_added = True
+
+            elif eq_type == "unstable":
+                ax.scatter(
+                    [p_star], [w_star],
+                    s=80, marker="o", color="green",
+                    label="Unstable equilibrium" if not unstable_added else None
+                )
+                unstable_added = True
     axes[0].set_ylabel("Fitness")
-    axes[0].legend()
+    
+    legend_elements = [
+        Line2D([0], [0], color="C0", lw=2, label="Producer fitness"),
+        Line2D([0], [0], color="C1", lw=2, linestyle="--", label="Non-producer fitness"),
+        Line2D([0], [0], marker="o", color="black", linestyle="None", markersize=6, label="Stable equilibrium"),
+        Line2D([0], [0], marker="o", color="green", linestyle="None", markersize=7, label="Unstable equilibrium"),
+    ]
+    axes[0].legend(handles=legend_elements)
+
     plt.suptitle("Fitness Comparison analysis")
     plt.tight_layout()
 
@@ -321,7 +448,6 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Single fitness-vs-fraction plot
@@ -331,31 +457,41 @@ if __name__ == "__main__":
         therapy_strength=args.therapy_strength,
         steepness=args.steepness,
         threshold=args.threshold,
-        title="Fitness vs fraction of producers", 
+        title="Fitness vs Fraction of Producers", 
         save_dir=args.output_dir
     )
 
     # Comparison plots
+    # plot_comparison(
+    #     group_size=args.group_size,
+    #     therapy_strength=args.therapy_strength,
+    #     steepness=args.steepness,
+    #     threshold=args.threshold,
+    #     high_cost=0.20,
+    #     low_cost=0.05, 
+    #     save_dir=args.output_dir
+    # )
+
     plot_comparison(
-        group_size=args.group_size,
-        therapy_strength=args.therapy_strength,
-        steepness=args.steepness,
-        threshold=args.threshold,
-        high_cost=0.20,
-        low_cost=0.05, 
-        save_dir=args.output_dir
+    group_size=20,
+    therapy_strength=0.0,
+    steepness=8,
+    threshold=0.3,
+    high_cost=0.20,
+    low_cost=0.05,
+    save_dir=args.output_dir
     )
 
-    result = simulate_dynamics(
-        p0=args.p0,
-        steps=args.steps,
-        dt=args.dt,
-        cost=args.cost,
-        group_size=args.group_size,
-        therapy_strength=args.therapy_strength,
-        therapy_start=args.therapy_start,
-        steepness=args.steepness,
-        threshold=args.threshold
+    result = simulate_dynamics( 
+        p0=args.p0, 
+        steps=args.steps, 
+        dt=args.dt, 
+        cost=args.cost, 
+        group_size=args.group_size, 
+        therapy_strength=args.therapy_strength, 
+        therapy_start=args.therapy_start, 
+        steepness=args.steepness, 
+        threshold=args.threshold 
     )
 
     plot_simulation(result, title="Cancer Simulation", save_dir=args.output_dir)
