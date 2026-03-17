@@ -36,26 +36,36 @@ def nonproducer_fitness(p, group_size=10, therapy_strength=0.0, steepness=10, th
     return effective_benefit
 
 
-def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size = 10, therapy_strength=0.0, therapy_start=None, steepness=10, threshold=0.3):
+def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=10,
+                      therapy_strength=0.0, therapy_start=None, steepness=10, threshold=0.3):
     """
     Replicator dynamics for producer fraction p
     """
-    p = p0 # proportion of producers
-    p_history=[]
-    d_history=[]
-    wp_history=[]
-    wd_history=[]
-    therapy_history=[]
+    p = p0  # proportion of producers
+    p_history = []
+    d_history = []
+    wp_history = []
+    wd_history = []
+    therapy_history = []
 
     for t in range(steps):
-        current_therapy=0.0
+        current_therapy = 0.0
         if therapy_start is not None and t >= therapy_start:
             current_therapy = therapy_strength
 
         # producer fitness
-        wp = producer_fitness(p, cost=cost, group_size=group_size, therapy_strength=current_therapy, steepness=steepness, threshold=threshold)
+        wp = producer_fitness(
+            p, cost=cost, group_size=group_size,
+            therapy_strength=current_therapy,
+            steepness=steepness, threshold=threshold
+        )
+
         # non-producer fitness
-        wd = nonproducer_fitness(p, group_size=group_size, therapy_strength=current_therapy, steepness=steepness, threshold=threshold)
+        wd = nonproducer_fitness(
+            p, group_size=group_size,
+            therapy_strength=current_therapy,
+            steepness=steepness, threshold=threshold
+        )
 
         # the change ratio of producers in this round
         dp = dt * p * (1 - p) * (wp - wd)
@@ -88,7 +98,7 @@ def plot_simulation(result, title="Cancer Simulation"):
     plt.plot(nonproducer_fraction, label="Non-producer fraction")
     plt.xlabel("Time step")
     plt.ylabel("Fraction")
-    plt.title(title + "- Fraction")
+    plt.title(title + " - Fraction")
     plt.ylim(-0.02, 1.02)
     plt.legend()
     plt.tight_layout()
@@ -100,8 +110,166 @@ def plot_simulation(result, title="Cancer Simulation"):
     plt.plot(therapy_vals, "--", label="Therapy strength")
     plt.xlabel("Time step")
     plt.ylabel("Value")
-    plt.title(title + "- Fitness")
+    plt.title(title + " - Fitness over time")
     plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def find_equilibria(cost=0.05, group_size=10, therapy_strength=0.0,
+                    steepness=10, threshold=0.3, num_points=1000):
+    """
+    Approximate interior equilibria where Wp(p) = Wd(p).
+    We detect sign changes in Wp - Wd on a dense grid.
+    """
+    p_grid = np.linspace(0, 1, num_points)
+    diff = []
+
+    for p in p_grid:
+        wp = producer_fitness(
+            p, cost=cost, group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness, threshold=threshold
+        )
+        wd = nonproducer_fitness(
+            p, group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness, threshold=threshold
+        )
+        diff.append(wp - wd)
+
+    diff = np.array(diff)
+    eq_points = []
+
+    for i in range(len(p_grid) - 1):
+        if diff[i] == 0:
+            eq_points.append(p_grid[i])
+        elif diff[i] * diff[i + 1] < 0:
+            # linear interpolation for approximate crossing
+            p1, p2 = p_grid[i], p_grid[i + 1]
+            d1, d2 = diff[i], diff[i + 1]
+            p_star = p1 - d1 * (p2 - p1) / (d2 - d1)
+            eq_points.append(p_star)
+
+    return eq_points
+
+
+def plot_fitness_vs_fraction(cost=0.05, group_size=10, therapy_strength=0.0,
+                             steepness=10, threshold=0.3,
+                             title="Fitness vs fraction of producers"):
+    """
+    Plot a paper-like figure:
+    x-axis = fraction of producers
+    y-axis = fitness
+    """
+    p_grid = np.linspace(0, 1, 500)
+
+    wp_vals = []
+    wd_vals = []
+
+    for p in p_grid:
+        wp = producer_fitness(
+            p, cost=cost, group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness, threshold=threshold
+        )
+        wd = nonproducer_fitness(
+            p, group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness, threshold=threshold
+        )
+        wp_vals.append(wp)
+        wd_vals.append(wd)
+
+    wp_vals = np.array(wp_vals)
+    wd_vals = np.array(wd_vals)
+
+    eq_points = find_equilibria(
+        cost=cost, group_size=group_size,
+        therapy_strength=therapy_strength,
+        steepness=steepness, threshold=threshold
+    )
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(p_grid, wp_vals, label="Producer fitness")
+    plt.plot(p_grid, wd_vals, label="Non-producer fitness")
+    plt.xlabel("Fraction of producers")
+    plt.ylabel("Fitness")
+    plt.title(title)
+    plt.legend()
+
+    # Mark approximate equilibrium points
+    for p_star in eq_points:
+        w_star = producer_fitness(
+            p_star, cost=cost, group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness, threshold=threshold
+        )
+        plt.scatter([p_star], [w_star], s=40)
+        plt.annotate(f"{p_star:.2f}", (p_star, w_star),
+                     textcoords="offset points", xytext=(5, 5))
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_comparison(group_size=10, therapy_strength=0.0,
+                               steepness=10, threshold=0.3,
+                               high_cost=0.20, low_cost=0.05):
+    """
+    Comparison Analysis
+    """
+    p_grid = np.linspace(0, 1, 500)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+
+    for ax, cost, panel_title in zip(
+        axes,
+        [high_cost, low_cost],
+        [f"High cost (c={high_cost})", f"Low cost (c={low_cost})"]
+    ):
+        wp_vals = []
+        wd_vals = []
+
+        for p in p_grid:
+            wp = producer_fitness(
+                p, cost=cost, group_size=group_size,
+                therapy_strength=therapy_strength,
+                steepness=steepness, threshold=threshold
+            )
+            wd = nonproducer_fitness(
+                p, group_size=group_size,
+                therapy_strength=therapy_strength,
+                steepness=steepness, threshold=threshold
+            )
+            wp_vals.append(wp)
+            wd_vals.append(wd)
+
+        wp_vals = np.array(wp_vals)
+        wd_vals = np.array(wd_vals)
+
+        ax.plot(p_grid, wp_vals, label="Producer fitness")
+        ax.plot(p_grid, wd_vals, label="Non-producer fitness")
+        ax.set_xlabel("Fraction of producers")
+        ax.set_title(panel_title)
+
+        eq_points = find_equilibria(
+            cost=cost, group_size=group_size,
+            therapy_strength=therapy_strength,
+            steepness=steepness, threshold=threshold
+        )
+
+        for p_star in eq_points:
+            w_star = producer_fitness(
+                p_star, cost=cost, group_size=group_size,
+                therapy_strength=therapy_strength,
+                steepness=steepness, threshold=threshold
+            )
+            ax.scatter([p_star], [w_star], s=35)
+
+    axes[0].set_ylabel("Fitness")
+    axes[0].legend()
+    plt.suptitle("Fitness Comparison analysis")
     plt.tight_layout()
     plt.show()
 
@@ -114,7 +282,9 @@ if __name__ == "__main__":
     parser.add_argument("--cost", type=float, default=0.05, help="Produce cost")
     parser.add_argument("--group_size", type=int, default=10, help="Group size")
     parser.add_argument("--therapy_strength", type=float, default=0.0, help="Therapy strength")
-    parser.add_argument("--therapy_start", type=int, default=None, help="Therapy state step")
+    parser.add_argument("--therapy_start", type=int, default=None, help="Therapy start step")
+    parser.add_argument("--steepness", type=float, default=10, help="Sigmoid steepness")
+    parser.add_argument("--threshold", type=float, default=0.3, help="Sigmoid threshold")
 
     args = parser.parse_args()
 
@@ -125,6 +295,29 @@ if __name__ == "__main__":
         cost=args.cost,
         group_size=args.group_size,
         therapy_strength=args.therapy_strength,
-        therapy_start=args.therapy_start
+        therapy_start=args.therapy_start,
+        steepness=args.steepness,
+        threshold=args.threshold
     )
+
     plot_simulation(result, title="Cancer Simulation")
+
+    # Single fitness-vs-fraction plot
+    plot_fitness_vs_fraction(
+        cost=args.cost,
+        group_size=args.group_size,
+        therapy_strength=args.therapy_strength,
+        steepness=args.steepness,
+        threshold=args.threshold,
+        title="Fitness vs fraction of producers"
+    )
+
+    # Comparison plots
+    plot_comparison(
+        group_size=args.group_size,
+        therapy_strength=args.therapy_strength,
+        steepness=args.steepness,
+        threshold=args.threshold,
+        high_cost=0.20,
+        low_cost=0.05
+    )
