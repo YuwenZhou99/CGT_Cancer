@@ -108,12 +108,12 @@ def plot_simulation(result, title="Cancer Simulation"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Variables control in cancer simulation")
-    parser.add_argument("--p0", type=int, default=0.05, help="Initial producer proportion")
+    parser.add_argument("--p0", type=float, default=0.05, help="Initial producer proportion")
     parser.add_argument("--steps", type=int, default=200, help="Number of simulation steps")
-    parser.add_argument("--dt", type=int, default=0.2, help="Evolution step size")
-    parser.add_argument("--cost", type=int, default=0.05, help="Produce cost")
+    parser.add_argument("--dt", type=float, default=0.2, help="Evolution step size")
+    parser.add_argument("--cost", type=float, default=0.05, help="Produce cost")
     parser.add_argument("--group_size", type=int, default=10, help="Group size")
-    parser.add_argument("--therapy_strength", type=int, default=0.0, help="Therapy strength")
+    parser.add_argument("--therapy_strength", type=float, default=0.0, help="Therapy strength")
     parser.add_argument("--therapy_start", type=int, default=None, help="Therapy state step")
 
     args = parser.parse_args()
