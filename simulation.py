@@ -336,7 +336,7 @@ def plot_comparison(group_size=20, therapy_strength=0.0,
     for ax, cost, panel_title in zip(
         axes,
         [high_cost, low_cost],
-        [f"High cost (c={high_cost})", f"Low cost (c={low_cost})"]
+        [f"a High cost (c={high_cost})", f"b Low cost (c={low_cost})"]
     ):
         wp_vals = []
         wd_vals = []
@@ -444,7 +444,7 @@ if __name__ == "__main__":
     parser.add_argument("--therapy_start", type=int, default=None, help="Therapy start step")
     parser.add_argument("--steepness", type=float, default=10, help="Sigmoid steepness")
     parser.add_argument("--threshold", type=float, default=0.3, help="Sigmoid threshold")
-    parser.add_argument("--output_dir", type=str, default="plots", help="Folder to save plots")
+    parser.add_argument("--output_dir", type=str, default="plots_baseline", help="Folder to save plots")
 
 
     args = parser.parse_args()
