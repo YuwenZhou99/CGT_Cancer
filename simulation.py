@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import csv
 
 
 def benefit_function(p, steepness=8, threshold=0.3):
@@ -322,6 +323,75 @@ def plot_fitness_vs_fraction(cost=0.05, group_size=20, therapy_strength=0.0,
     plt.show()
 
 
+def save_simulation_csv(result, save_dir, filename="simulation_trajectory.csv"):
+    path = os.path.join(save_dir, filename)
+    n = len(result["producer_fraction"])
+
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "time_step",
+            "producer_fraction",
+            "nonproducer_fraction",
+            "producer_fitness",
+            "nonproducer_fitness",
+            "therapy"
+        ])
+        for t in range(n):
+            writer.writerow([
+                t,
+                result["producer_fraction"][t],
+                result["nonproducer_fraction"][t],
+                result["producer_fitness"][t],
+                result["nonproducer_fitness"][t],
+                result["therapy"][t]
+            ])
+
+
+def save_equilibria_csv(cost=0.05, group_size=20, therapy_strength=0.0,
+                        steepness=8, threshold=0.3, save_dir=None,
+                        filename="equilibria.csv"):
+    eq_points = find_equilibria(
+        cost=cost,
+        group_size=group_size,
+        therapy_strength=therapy_strength,
+        steepness=steepness,
+        threshold=threshold
+    )
+
+    path = os.path.join(save_dir, filename)
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "equilibrium_p",
+            "equilibrium_type",
+            "cost",
+            "group_size",
+            "therapy_strength",
+            "steepness",
+            "threshold"
+        ])
+
+        for p_star in eq_points:
+            eq_type = classify_equilibrium(
+                p_star,
+                cost=cost,
+                group_size=group_size,
+                therapy_strength=therapy_strength,
+                steepness=steepness,
+                threshold=threshold
+            )
+            writer.writerow([
+                p_star,
+                eq_type,
+                cost,
+                group_size,
+                therapy_strength,
+                steepness,
+                threshold
+            ])
+
+
 def plot_comparison(group_size=20, therapy_strength=0.0,
                                steepness=8, threshold=0.3,
                                high_cost=0.20, low_cost=0.05, 
@@ -492,6 +562,16 @@ if __name__ == "__main__":
         therapy_start=args.therapy_start, 
         steepness=args.steepness, 
         threshold=args.threshold 
+    )
+
+    save_simulation_csv(result, args.output_dir)
+    save_equilibria_csv(
+        cost=args.cost,
+        group_size=args.group_size,
+        therapy_strength=args.therapy_strength,
+        steepness=args.steepness,
+        threshold=args.threshold,
+        save_dir=args.output_dir
     )
 
     plot_simulation(result, title="Cancer Simulation", save_dir=args.output_dir)
