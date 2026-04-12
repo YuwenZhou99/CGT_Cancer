@@ -39,14 +39,14 @@ def nonproducer_fitness(p, group_size=20, therapy_strength=0.0, steepness=8, thr
     return effective_benefit
 
 
-def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=20,
+def simulate_dynamics(p0=0.05, steps=200, dt=0.2, cost=0.05, group_size=20,
                       therapy_strength=0.0, therapy_start=None, steepness=8, threshold=0.3):
     """
     Replicator dynamics for producer fraction p
     """
     p = p0  # proportion of producers
     p_history = []
-    d_history = []
+    nonproducer_history = []
     wp_history = []
     wd_history = []
     therapy_history = []
@@ -75,14 +75,14 @@ def simulate_dynamics(p0=0.5, steps=200, dt=0.2, cost=0.15, group_size=20,
         p = np.clip(p + dp, 0.0, 1.0)
 
         p_history.append(p)
-        d_history.append(1 - p)
+        nonproducer_history.append(1 - p)
         wp_history.append(wp)
         wd_history.append(wd)
         therapy_history.append(current_therapy)
 
     return {
         "producer_fraction": np.array(p_history),
-        "nonproducer_fraction": np.array(d_history),
+        "nonproducer_fraction": np.array(nonproducer_history),
         "producer_fitness": np.array(wp_history),
         "nonproducer_fitness": np.array(wd_history),
         "therapy": np.array(therapy_history)
@@ -265,17 +265,6 @@ def plot_fitness_vs_fraction(cost=0.05, group_size=20, therapy_strength=0.0,
     ]
     plt.legend(handles=legend_elements)
 
-    # # Mark approximate equilibrium points
-    # for p_star in eq_points:
-    #     w_star = producer_fitness(
-    #         p_star, cost=cost, group_size=group_size,
-    #         therapy_strength=therapy_strength,
-    #         steepness=steepness, threshold=threshold
-    #     )
-    #     plt.scatter([p_star], [w_star], s=40)
-    #     plt.annotate(f"{p_star:.2f}", (p_star, w_star),
-    #                  textcoords="offset points", xytext=(5, 5))
-
     # Mark approximate equilibrium points and classify them
     stable_added = False
     unstable_added = False
@@ -439,13 +428,6 @@ def plot_comparison(group_size=20, therapy_strength=0.0,
             steepness=steepness, threshold=threshold
         )
 
-        # for p_star in eq_points:
-        #     w_star = producer_fitness(
-        #         p_star, cost=cost, group_size=group_size,
-        #         therapy_strength=therapy_strength,
-        #         steepness=steepness, threshold=threshold
-        #     )
-        #     ax.scatter([p_star], [w_star], s=35)
         stable_added = False
         unstable_added = False
 
@@ -509,10 +491,10 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=200, help="Number of simulation steps")
     parser.add_argument("--dt", type=float, default=0.2, help="Evolution step size")
     parser.add_argument("--cost", type=float, default=0.05, help="Produce cost")
-    parser.add_argument("--group_size", type=int, default=10, help="Group size")
+    parser.add_argument("--group_size", type=int, default=20, help="Group size")
     parser.add_argument("--therapy_strength", type=float, default=0.0, help="Therapy strength")
     parser.add_argument("--therapy_start", type=int, default=None, help="Therapy start step")
-    parser.add_argument("--steepness", type=float, default=10, help="Sigmoid steepness")
+    parser.add_argument("--steepness", type=float, default=8, help="Sigmoid steepness")
     parser.add_argument("--threshold", type=float, default=0.3, help="Sigmoid threshold")
     parser.add_argument("--output_dir", type=str, default="plots_baseline", help="Folder to save plots")
 
@@ -530,17 +512,6 @@ if __name__ == "__main__":
         title="Fitness vs Fraction of Producers", 
         save_dir=args.output_dir
     )
-
-    # Comparison plots
-    # plot_comparison(
-    #     group_size=args.group_size,
-    #     therapy_strength=args.therapy_strength,
-    #     steepness=args.steepness,
-    #     threshold=args.threshold,
-    #     high_cost=0.20,
-    #     low_cost=0.05, 
-    #     save_dir=args.output_dir
-    # )
 
     plot_comparison(
     group_size=20,

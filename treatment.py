@@ -6,10 +6,16 @@ import csv
 
 
 def benefit_function(p, steepness=8, threshold=0.3):
+    """
+    Sigmoid public-good benefit as a function of the local producer fraction.
+    """
     return 1.0 / (1.0 + np.exp(-steepness * (p - threshold)))
 
 
 def producer_fitness(p, cost=0.15, group_size=20, therapy_strength=0.0, steepness=8, threshold=0.3):
+    """
+    Fitness of a producer cell.
+    """
     n = group_size
     local_fraction_for_producer = (1 + (n - 1) * p) / n
     benefit = benefit_function(local_fraction_for_producer, steepness, threshold)
@@ -17,6 +23,9 @@ def producer_fitness(p, cost=0.15, group_size=20, therapy_strength=0.0, steepnes
 
 
 def nonproducer_fitness(p, group_size=20, therapy_strength=0.0, steepness=8, threshold=0.3):
+    """
+    Fitness of a non-producer cell.
+    """
     n = group_size
     local_fraction_for_nonproducer = ((n - 1) * p) / n
     benefit = benefit_function(local_fraction_for_nonproducer, steepness, threshold)
@@ -24,14 +33,24 @@ def nonproducer_fitness(p, group_size=20, therapy_strength=0.0, steepness=8, thr
 
 
 def no_treatment_policy(p, t, d_max=0.0, p_crit=0.5):
+    """
+    No-treatment policy: always applies zero treatment.
+    """
     return 0.0
 
 
 def constant_treatment_policy(p, t, d_max=0.5, p_crit=0.5):
+    """
+    No-treatment policy: always applies zero treatment.
+    """
     return d_max
 
 
 def threshold_treatment_policy(p, t, d_max=0.5, p_crit=0.5):
+    """
+    Threshold-based adaptive treatment. 
+    Applies maximum treatment d_max if the producer fraction p exceeds the critical threshold p_crit, otherwise applies no treatment.
+    """
     return d_max if p > p_crit else 0.0
 
 
@@ -49,6 +68,9 @@ def simulate_controlled_dynamics(
     sigma=0.01,
     p_target=0.1
 ):
+    """
+    Simulate producer - non producer dynamics under a treatment policy.
+    """
     if policy is None:
         policy = no_treatment_policy
 
@@ -62,8 +84,10 @@ def simulate_controlled_dynamics(
     stopping_time = steps
 
     for t in range(steps):
+        # Treatment intensity chosen by the current policy
         current_therapy = policy(p, t, d_max=d_max, p_crit=p_crit)
 
+        # Fitness under treatment
         wp = producer_fitness(
             p, cost=cost, group_size=group_size,
             therapy_strength=current_therapy,
@@ -74,22 +98,26 @@ def simulate_controlled_dynamics(
             therapy_strength=current_therapy,
             steepness=steepness, threshold=threshold
         )
-
+        # Discrete time replicator dynanamics update
         dp = dt * p * (1 - p) * (wp - wd)
         p = np.clip(p + dp, 0.0, 1.0)
 
+        # Store trajectories
         p_history.append(p)
         d_history.append(current_therapy)
         wp_history.append(wp)
         wd_history.append(wd)
 
+        # Running objective function
         objective += (current_therapy + sigma) * dt
 
+        # Early stopping if target is reached
         if p <= p_target:
             reached_target = True
             stopping_time = t + 1
             break
 
+    # Adding a penalty if the target is never reached
     if not reached_target:
         objective += 1000.0
 
@@ -106,6 +134,9 @@ def simulate_controlled_dynamics(
 
 
 def save_policy_trajectory_csv(result, save_dir, filename):
+    """
+    Save the full trajectory to a CSV file.
+    """
     path = os.path.join(save_dir, filename)
     n = len(result["producer_fraction"])
 
@@ -131,6 +162,9 @@ def save_policy_trajectory_csv(result, save_dir, filename):
 
 
 def save_policy_summary_csv(results, save_dir, filename="policy_summary.csv"):
+    """
+    Save a summary table for all treatment policies
+    """
     path = os.path.join(save_dir, filename)
 
     with open(path, "w", newline="") as f:
@@ -167,6 +201,9 @@ def plot_policy_comparison(
     p_target=0.1,
     save_dir=None
 ):
+    """
+    Compare no treatment, constant treatment, and adaptive treatment
+    """
     results = {
         "No treatment": simulate_controlled_dynamics(
             p0=p0, steps=steps, dt=dt, cost=cost,
@@ -195,16 +232,25 @@ def plot_policy_comparison(
         save_policy_summary_csv(results, save_dir)
 
     plt.figure(figsize=(10, 5))
+    styles = {
+        "No treatment": {"linestyle": "-", "linewidth": 2},
+        "Constant treatment": {"linestyle": "--", "linewidth": 2},
+        "Adaptive treatment": {"linestyle": "-.", "linewidth": 2},
+    }
+
     for name, res in results.items():
-        plt.plot(res["producer_fraction"], label=name, linewidth=2)
+        y = res["producer_fraction"]
+        plt.plot(y, label=name, **styles[name])
+        if len(y) > 0:
+            plt.scatter(len(y) - 1, y[-1], s=25)
+
     plt.xlabel("Time step")
     plt.ylabel("Producer fraction")
     plt.title("Producer dynamics under different treatment policies")
+    plt.xlim(0, 140)
+    plt.ylim(0.44, 0.60)
     plt.legend()
     plt.tight_layout()
-    if save_dir is not None:
-        plt.savefig(os.path.join(save_dir, "policy_comparison_dynamics.png"), dpi=300, bbox_inches="tight")
-    plt.show()
 
     plt.figure(figsize=(10, 5))
     for name, res in results.items():
@@ -247,6 +293,9 @@ def adaptive_parameter_sweep_figure(
     p_target=0.45,
     save_dir=None
 ):
+    """
+    Evaluate adaptive treatment across a grid
+    """
     if d_values is None:
         d_values = [0.2, 0.3, 0.4, 0.5, 0.6]
     if pcrit_values is None:
